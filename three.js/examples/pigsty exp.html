@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewpoint"
+		  content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+		<title>PigSty Project</title>
+	</head>
+	<body>
+		<div id="info">
+			<a href="http://threejs.org" target="_blank" rel="noopener">PigSty</a> author:rscv5
+		</div>
+		<script src="../build/three.js"></script>
+		<script src="./jsm/libs/ThreeBSP.js"></script>
+		<script src="../build/three.module.js"></script>
+		<script type="module">
+
+			import { GUI } from './jsm/libs/dat.gui.module.js';
+			import { OrbitControls } from "./jsm/controls/OrbitControls.js";
+			import { MTLLoader } from "./jsm/loaders/MTLLoader.js";
+			import { VRButton } from "./jsm/webxr/VRButton.js";
+			import { OBJLoader } from "./jsm/loaders/OBJLoader.js";
+			import Stats from "./jsm/libs/stats.module.js";
+			import { Sky } from "./jsm/objects/Sky.js";
+			import { CSS2DRenderer, CSS2DObject } from "./jsm/renderers/CSS2DRenderer.js";
+
+			//全局变量设置
+			var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+			var VIEW_ANGLE = 75, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 10000;
+
+			//renderer
+			var renderer;
+			function initRender() {
+
+				//antialias：true 增加抗锯齿效果
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				// renderer.setClearColor( 0xE0E0E0, 1.0 );//设置背景颜色
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				//开启阴影，加上阴影渲染
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+				renderer.xr.enabled = true;
+				document.body.appendChild( VRButton.createButton( renderer ) );
+				//将renderer关联到container
+				container.appendChild( renderer.domElement );
+			}
+
+
+			var camera, cameraOrtho;
+			function initCamera() {
+
+				//camera
+				camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR );
+				camera.position.set( 0, 500, 800 );
+				camera.lookAt( new THREE.Vector3( 0, 0, 0 ) ); //相机指向原点
+
+				//cameraOrtho
+				cameraOrtho = new THREE.OrthographicCamera( - SCREEN_WIDTH / 2,
+					SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, - SCREEN_HEIGHT / 2, NEAR, FAR );
+				// cameraOrtho.position.set( 0, 500, 800 );
+				cameraOrtho.position.z = 10;
+			}
+
+			var scene, sceneOrtho;
+			function initScene() {
+
+				scene = new THREE.Scene();
+				sceneOrtho = new THREE.Scene();
+
+			}
+
+			var stats;
+			function initStats() {
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+			}
+
+			var sky, sun;
+			function initSky() {
+
+				//add sky
+				sky = new Sky();
+				sky.scale.setScalar( 450000 );
+				sky.castShadow = true;
+				scene.add( sky );
+
+				sun = new THREE.Vector3();
+			}
+
+
+			var labelRenderer = new CSS2DRenderer();
+			function initLabel() {
+
+				labelRenderer.setSize( window.innerWidth, window.innerHeight );
+				labelRenderer.domElement.style.position = 'absolute';
+				labelRenderer.domElement.style.top = '0px';
+				document.body.appendChild( labelRenderer.domElement );
+			}
+
+			// var textureLoader = new THREE.TextureLoader();
+
+			function addLable( string, x, y, z ) {
+
+				var labelDiv = document.createElement( 'div' );
+				labelDiv.className = 'label';
+				labelDiv.textContent = string;
+				labelDiv.style.marginTop = '-1em';
+				var Label = new CSS2DObject( labelDiv );
+				Label.position.x = x;
+				Label.position.y = y;
+				Label.position.z = z;
+				scene.add( Label );
+
+			}
+
+			// pigmodel
+			var objLoader = new OBJLoader();
+			var mtlLoader = new MTLLoader();
+			function loadpigmodel( x, y, z, ang, scale ) {
+
+				mtlLoader.setPath( './images/' );
+				mtlLoader.load( 'Pig1.mtl', function ( loadedMesh ) {
+
+					objLoader.setMaterials( loadedMesh );
+					objLoader.load( './images/Pig1.obj', function ( object ) {
+
+						switch ( scale ) {
+
+							case 'big':
+								object.scale.set( 100, 100, 100 );
+								break;
+							case 'small':
+								object.scale.set( 90, 90, 90 );
+								break;
+							default:
+
+						}
+
+						// object.scale.set( 10, 10, 10 );
+						object.position.x = x;
+						object.position.y = y;
+						object.position.z = z;
+						object.rotation.y = Math.PI / ang;
+						object.traverse( function ( child ) {
+
+							child.castShadow = true;
+
+			} );
+						scene.add( object );
+
+					} );
+
+				} );
+
+			}
+
+		// compostboxes
+			var objLoader = new OBJLoader();
+			var mtlLoader = new MTLLoader();
+			function loadcompostboxes( x, y, z, ang, scale) {
+
+				mtlLoader.setPath( './images/' );
+				mtlLoader.load( 'compostboxes.mtl', function ( loadedMesh ) {
+
+					objLoader.setMaterials( loadedMesh );
+					objLoader.load( './images/compostboxes.obj', function ( compostboxes ) {
+
+						compostboxes.scale.set( 1, 1, 1 );
+						compostboxes.position.x = x;
+						compostboxes.position.y = y;
+						compostboxes.position.z = z;
+						compostboxes.rotation.y = Math.PI / ang;
+						compostboxes.traverse( function ( child ) {
+
+							child.castShadow = true;
+
+			} );
+						scene.add( compostboxes );
+
+					} );
+
+				} );
+
+			}
+
+			function loaddoor( x, y, z, s ) {
+
+				mtlLoader.setPath( './images/' );
+				mtlLoader.load( 'door.mtl', function ( loadedMesh ) {
+
+					objLoader.setMaterials( loadedMesh );
+					objLoader.load( './images/door.obj', function ( door ) {
+
+						door.scale.set( s, 0.85, 1.35 );
+						door.position.x = x;
+						door.position.y = y;
+						door.position.z = z;
+						door.rotation.y += 1.5 * Math.PI;
+						door.traverse( function ( child ) {
+
+							child.castShadow = true;
+
+			} );
+						scene.add( door );
+
+					} );
+
+				} );
+
+			}
+
+			function loadwooddoor( x, y, z, s ) {
+
+				mtlLoader.setPath( './images/' );
+				mtlLoader.load( 'wooddoor.mtl', function ( loadedMesh ) {
+
+					objLoader.setMaterials( loadedMesh );
+					objLoader.load( './images/wooddoor.obj', function ( wooddoor ) {
+
+						wooddoor.scale.set( s, s, 1.30 );
+						wooddoor.position.x = x;
+						wooddoor.position.y = y;
+						wooddoor.position.z = z;
+						wooddoor.rotation.y += 1.5 * Math.PI;
+						wooddoor.traverse( function ( child ) {
+
+							child.castShadow = true;
+
+			} );
+						scene.add( wooddoor );
+
+					} );
+
+				} );
+			}
+
+
+			//事件控制器
+			var effectController;
+			var container;
+			var matArrayA = []; //内墙
+			// var matArrayB = []; //外墙
+			var troughArray = []; // troughArray
+			var concretefloor = []; //concrete floor
+			var matArrayC = []; //fermentation floor
+			var compostArray = []; // compostArray
+			var dummy = new THREE.Object3D(); // 仿制品
+			//用户交互插件 鼠标左键按住旋转，滚轮缩放
+			var controls, delta;
+			var clock = new THREE.Clock(); // 更新轨道控制器
+			// 用户交互插件轨道控制器
+			function initControls() {
+
+				controls = new OrbitControls( camera, container );
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls = new OrbitControls( camera, labelRenderer.domElement );
+				//如果使用animate方法时，将此函数删除
+				//controls.addEventListener('change', render);
+				//使动画循环使用时阻尼或自转 意思是否有惯性
+				controls.enableDamping = true;
+				controls.target = new THREE.Vector3( 0, 0, 0 );
+				controls.autoRotate = false; // 自动旋转开启
+				controls.update();
+
+			}
+
+			function guiChanged() {
+
+				var uniforms = sky.material.uniforms;
+				uniforms[ "rayleigh" ].value = 2.7;
+
+				var theta = Math.PI * ( - 0.01 );
+				var phi = 2 * Math.PI * ( effectController.azimuth - 0.5 );
+
+				sun.x = Math.cos( phi );
+				sun.y = Math.sin( phi ) * Math.sin( theta );
+				sun.z = Math.sin( phi ) * Math.cos( theta );
+
+				uniforms[ "sunPosition" ].value.copy( sun );
+				dirLight.position.set( 1500 * effectController.azimuth, 1600, - 1000 );
+				if ( effectController.azimuth <= 0.1 || effectController.azimuth >= 0.55 )
+					dirLight.visible = false;
+				else
+					dirLight.visible = true;
+
+
+			}
+
+			var clearroof;
+			function setupGUi() {
+
+				effectController = {
+					//roof
+					showclearroof: true,
+					//sun
+					azimuth: 0.25,
+					//pigsty design
+					// design: 1,
+					"showdesign": true,
+					"size": 3,
+					"opacity": 0.1,
+					redraw: function () {
+
+						sceneOrtho.children.forEach( function ( child ) {
+
+							if ( child instanceof THREE.Sprite ) sceneOrtho.remove( child );
+
+			} );
+
+						createHUDSprites( effectController.size, effectController.opacity );
+
+					}
+				};
+
+				var h;
+				var gui = new GUI();
+				//将设置属性添加到gui当中, gui.add(对象， 属性， 最小值， 最大值）
+				h = gui.addFolder( "Tessellation control" );
+				h.add( effectController, "showclearroof" ).name( "display clearroof" ).onChange( function ( value ) {
+
+					clearroof.visible = value;
+					// render();
+
+				} );
+				h = gui.addFolder( "sky_sun" );
+				h.add( effectController, "azimuth", 0, 0.7, 0.0001 ).onChange( guiChanged );
+
+				h = gui.addFolder( "2D-pigsty design " );
+				h.add( effectController, 'size', 1, 3 ).step( 0.5 ).onChange( effectController.redraw );
+				h.add( effectController, 'opacity', 0, 0.06, 0.01 ).onChange( effectController.redraw );
+				h.add( effectController, 'showdesign' ).name( "show pigsty design" ).onChange( function ( value ) {
+
+					sprite.visible = value;
+					// render();
+
+	} );
+				// h.add( effectController, "design", 1, 3 ).step( 1 ).onChange( effectController.redraw );
+				effectController.redraw();
+				guiChanged();
+
+			}
+
+			// function createSprite( size, opacity, designNumber ) {
+			var sprite;
+			function createHUDSprites( size, opacity ) {
+
+				var texture = new THREE.TextureLoader().load( "images/pigstydesign.png" );
+				var spriteMaterial = new THREE.SpriteMaterial( {
+					// opacity: opacity,
+					map: texture,
+					opacity: opacity
+				} );
+
+				sprite = new THREE.Sprite( spriteMaterial );
+				// sprite.scale.set( size, size, 1 );
+				sprite.scale.set( SCREEN_WIDTH / size, SCREEN_HEIGHT / size, 1 );
+				sprite.center.set( 0.0, 1.0 );
+				// sprite.position.set( - window.innerWidth / 2, window.innerHeight / 2, 1 );
+				sprite.velocityX = 5;
+
+				sceneOrtho.add( sprite );
+
+				updateHUDSprites();
+
+			}
+
+			function updateHUDSprites() {
+
+				var width = window.innerWidth / 2;
+				var height = window.innerHeight / 2;
+
+				// sprite.position.set( 0, 0, 1 );
+				sprite.position.set( - width, height, 1 );
+
+			}
+
+			init();
+			animate();
+			window.onresize = onWindowResize;
+
+			function plane() {
+
+				var loader = new THREE.TextureLoader();
+				loader.load( "images/floor.png", function ( texture ) {
+
+					texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+					texture.repeat.set( 10, 10 );
+					//对应长，宽，长方形等分量，宽方向等分量
+					var planeGeo = new THREE.BoxGeometry( 2000, 1000, 1 );
+					//可以换材料
+					var planeMat = new THREE.MeshPhongMaterial( {
+						map: texture, side: THREE.DoubleSide
+						// color : 0xCCCCCCC
+					} );
+					var planeMesh = new THREE.Mesh( planeGeo, planeMat ); //
+					planeMesh.position.y = 35;
+					planeMesh.rotation.x = Math.PI / 2;
+					planeMesh.receiveShadow = true;
+					scene.add( planeMesh );
+
+				} );
+
+			}
+
+			function render() {
+
+				delta = clock.getDelta();
+				controls.update( delta );
+				requestAnimationFrame( render );
+				renderer.render( scene, camera );
+				renderer.autoClear = false;
+				renderer.clearDepth();
+				renderer.render( sceneOrtho, cameraOrtho );
+
+			}
+
+			//窗口变动触发的函数
+			function onWindowResize() {
+
+				camera.aspect = ASPECT;
+				camera.updateProjectionMatrix();
+
+				cameraOrtho.leftt = - SCREEN_WIDTH / 2;
+				cameraOrtho.right = SCREEN_WIDTH / 2;
+				cameraOrtho.top = SCREEN_HEIGHT / 2;
+				cameraOrtho.bottom = - SCREEN_HEIGHT / 2;
+				cameraOrtho.updateProjectionMatrix();
+
+				updateHUDSprites();
+				renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
+
+
+
+			}
+
+			//初始化 OBJ对象
+			function initObject() {
+
+				//compostbox materail
+				//createcompostMaterail();
+				//trough materail
+				createtroughMaterail();
+				createconcretefloor();
+				//墙纹理
+				createWallMaterail();
+				createfermentationbed();
+				createLayout();
+
+			}
+
+			//创建墙
+			function createCubeWall( width, height, depth, angle, material, x, y, z ) {
+
+				//长，宽，高，长/宽/高等分量
+				var cubeGeometry = new THREE.BoxGeometry( width, height, depth );
+				var cube = new THREE.Mesh( cubeGeometry, material );
+				cube.castShadow = true;//开启投影
+				// cube.receiveShadow = true;//接收阴影
+				cube.position.x = x;
+				cube.position.y = y;
+				cube.position.z = z;
+				cube.rotation.y += angle * Math.PI; //-逆时针旋转，+顺时针
+				scene.add( cube );
+
+			}
+
+			//返回墙对象
+			function returnWallObject( width, height, depth, angle, material, x, y, z ) {
+
+				var cubeGeometry = new THREE.BoxGeometry( width, height, depth );
+				var cube = new THREE.Mesh( cubeGeometry, material );
+				cube.position.x = x;
+				cube.position.y = y;
+				cube.position.z = z;
+				cube.rotation.y += angle * Math.PI;
+				cube.castShadow = true;
+				// cube.receiveShadow = true;
+				return cube;
+
+			}
+
+			//创建墙纹理
+			function createWallMaterail() {
+
+				var loader = new THREE.TextureLoader();
+				loader.load( "images/brickwalll.png", function ( texture ) {
+
+					texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+					texture.repeat.set( 10, 10 );
+					//前
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//后
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//上
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//下
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//左
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//右
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+
+				} );
+
+			}
+
+			//fermentation floor
+			function createfermentationbed() {
+
+				var loader = new THREE.TextureLoader();
+				loader.load( "images/fermentationbed.png", function ( texture ) {
+
+					texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+					texture.repeat.set( 10, 10 );
+					//前
+					matArrayC.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//后
+					matArrayC.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//上
+					matArrayC.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//下
+					matArrayC.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//左
+					matArrayC.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					//右
+					matArrayC.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+
+				} );
+
+			}
+
+			//墙上挖门,通过两个集合体生产BSP对象
+			function createResultBsp( bsp, less_bsp, mat ) {
+
+				var texture = new THREE.TextureLoader().load( "images/brickwalll.png" );
+				switch ( mat ) {
+
+					case 1:
+						var material = new THREE.MeshPhongMaterial( { map: texture } );
+						break;
+					case 2:
+						var material = new THREE.MeshPhongMaterial( { map: texture } );
+						break;
+					default:
+
+				}
+
+				var sphere1BSP = new ThreeBSP( bsp );
+				var cube2BSP = new ThreeBSP( less_bsp );
+				//差集 在第一个几何体中移除两个几何体重叠部分来创建新的几何体
+				var resultBSP = sphere1BSP.subtract( cube2BSP );
+				//从 BSP对象内获取到处理完成后的mesh模型数据
+				var result = resultBSP.toMesh( material );
+				result.material.flatshading = THREE.FlatShading;
+				//重新计算几何体侧面法向量 更新模型的面和顶点的数据
+				result.geometry.computeFaceNormals();
+				result.geometry.computeVertexNormals();
+				//更新纹理
+				result.material.needsUpdate = true;
+				result.geometry.buffersNeedUpdate = true;
+				result.geometry.uvsNeedUpdate = true;
+				//shadow
+				result.castShadow = true;
+				result.receiveShadow = true;
+
+				scene.add( result );
+
+			}
+
+			//创建房屋布局
+			function createLayout() {
+
+				// createCubeWall(width, height, depth, angle, material, x, y, z)
+				//墙面1 立方体比较长的面 左一
+				createCubeWall( 25, 130, 525, 0, matArrayA, - 215, 100, 0 );
+				//墙面2  立方体比较长的面   右一
+				createCubeWall( 25, 130, 525, 1, matArrayA, 215, 100, 0 );
+				//墙面3   门对面的墙， 立方体比较短的面
+				createCubeWall( 25, 130, 455, 1.5, matArrayA, 0, 100, 250 );
+				//墙面4 带门的墙面
+				var wall = returnWallObject( 25, 130, 405, 1.5, matArrayA, 0, 100, - 250 );
+				//门框
+				var door_cube = returnWallObject( 25, 160, 175, 1.5, matArrayA, - 155, 100, - 250 );
+				createResultBsp( wall, door_cube, 2 );
+				//clearfloor 区域
+				//clearfloor的右边墙
+				createCubeWall( 205, 130, 25, 0.5, matArrayA, - 55, 100, - 145 );
+				// createCubeWall(25, 130, 90, 0.5, matArrayB, -30, 100, -65);
+				var roof_cube = returnWallObject( 25, 130, 265, 0.5, matArrayA, 65, 100, - 55 );
+				//concrete floor
+				createCubeWall( 280, 5, 200, 0, concretefloor, 75, 38, -155 );
+				//clearfloor 门
+				var roofdoor_cube1 = returnWallObject( 25, 130, 90, 0.5, matArrayA, 30, 100, - 55 );
+				createResultBsp( roof_cube, roofdoor_cube1, 2 );
+				// door( x, y, z, scale)
+				loaddoor( - 34, 40, - 750, 1 );
+				//fence
+				// createCubeWall( 25, 50, 160, 1.5, matArrayA, - 140, 60, - 100 );
+				loadwooddoor( - 37, 50, - 450, 1 );
+				//pigmodel
+				loadpigmodel( 30, 50, - 110, 0.5, 'small' );
+				loadpigmodel( - 30, 35, 100, 3, 'big' );
+				//compost boxes
+				loadcompostboxes ( 800, 30, -100, 1, 1);
+				//compost bin
+				//loadcompostbin ( 800, 30, -80, 1, 1);
+				//Trough
+				creattrough( troughArray, 10, 40, 100, 1.5 );
+				creattrough( troughArray, - 200, 40, 100, 1.5 );
+				// fermentation bed
+				createCubeWall( 450, 75, 312, 0, matArrayC, 0, 0, 100 );
+
+
+			}
+
+			// Whenever the clearroof changes, the scene is rebuilt from scratch
+			function creatClearRoof() {
+
+				var clearroofGeo = new THREE.BoxGeometry( 270, 200, 10, 100 );
+				var clearroofMat = new THREE.MeshPhongMaterial( {
+					color: 0xCCCCCC,
+					wireframe: true
+				} );
+				clearroof = new THREE.Mesh( clearroofGeo, clearroofMat );
+				clearroof.position.z = - 155;
+				clearroof.position.y = 165;
+				clearroof.position.x = 85;
+				clearroof.rotation.x = Math.PI / 2;
+				clearroof.visible = true;
+				clearroof.castShadow = true;
+				scene.add( clearroof );
+
+			}
+
+			// trough
+			function creattrough( material, x, y, z, s ) {
+
+				var trackShape = new THREE.Shape()
+					.moveTo( 40, 40 )
+					.lineTo( 40, 100 )
+					.absarc( 60, 100, 20, Math.PI, 0, true )
+					.lineTo( 80, 40 )
+					.absarc( 60, 40, 20, 2 * Math.PI, Math.PI, true );
+				var extrudeSettings = { depth: 25, bevelEnabled: true,
+					bevelSegments: 2, steps: 2, bevelSize: 1, bevelThickness: 1 };
+				var geometry = new THREE.ExtrudeBufferGeometry( trackShape, extrudeSettings );
+				var mesh = new THREE.Mesh( geometry, material );
+				mesh.position.set( x, y, z );
+				mesh.rotation.x = Math.PI / 2;
+				mesh.rotation.y = Math.PI / 1;
+				mesh.rotation.z = Math.PI / 2;
+				mesh.scale.set( s, s, s );
+				mesh.castShadow = true;
+				// mesh.receiveShadow = true;
+				scene.add( mesh );
+
+			}
+
+			//create trough material
+
+			function createtroughMaterail() {
+
+				troughArray.push( new THREE.MeshPhongMaterial( { color: 0x7a5549 } ) ); //前 灰色
+				troughArray.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //后
+				troughArray.push( new THREE.MeshPhongMaterial( { color: 0x7a5549 } ) ); //上 棕色
+				troughArray.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //下 灰色
+				troughArray.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //左 灰色
+				troughArray.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //右 灰色
+
+			}
+
+
+			//create concrete floor
+
+			function createconcretefloor() {
+
+				concretefloor.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //前 灰色
+				concretefloor.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //后
+				concretefloor.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //上 棕色
+				concretefloor.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //下 灰色
+				concretefloor.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //左 灰色
+				concretefloor.push( new THREE.MeshPhongMaterial( { color: 0x9ca1a4 } ) ); //右 灰色
+
+			}
+
+			var dirLight, ambientLight;
+			function initLight() {
+
+				ambientLight = new THREE.AmbientLight( 0xffffff, 0.6 );
+				scene.add( ambientLight );
+
+				dirLight = new THREE.DirectionalLight( 0xffffff, 0.7 );
+				//决定使用多少像素生成阴影
+				dirLight.shadow.mapSize.width = 2048;
+				dirLight.shadow.mapSize.height = 2048;
+
+				dirLight.shadow.camera.near = - 1000; // 产生阴影的最近距离
+				dirLight.shadow.camera.far = 8000; // 产生阴影的最远距离
+
+				var d = 600;
+				dirLight.shadow.camera.left = - d;//产生阴影距离位置的最左边位置
+				dirLight.shadow.camera.right = d;
+				dirLight.shadow.camera.top = d;
+				dirLight.shadow.camera.bottom = - d;
+				dirLight.castShadow = true;
+				dirLight.shadow.bias = 0.0038;
+
+				scene.add( dirLight );
+
+
+
+			}
+
+			function init() {
+
+				//添加一个div元素
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+				initScene();
+				initSky();
+				initLight();
+				initCamera();
+				initRender();
+				initStats();
+				initControls();
+				initObject();
+				addLable( 'Brick Wall', - 215, 100, 0 );
+				addLable( 'Clear Roof', 0, 160, - 145 );
+				addLable( 'Trough', - 80, 40, 180 );
+				addLable( 'Fence', - 130, 90, - 110 );
+				addLable( 'Gate', - 130, 100, - 250 );
+				addLable( 'CompostBoxes', 400, 140, 100 );
+				addLable( 'Fermentation Bed', 0 , 40, 100 );
+				addLable( 'Concrete Floor', 20, 0, - 145 );
+				initLabel();
+				// initLight();
+				plane();
+				creatClearRoof();
+
+				//GUI
+				setupGUi();
+
+			}
+
+			function animate() {
+
+				//更新控制器
+				render();
+				//更新性能插件
+				controls.update();
+				stats.update();
+				// renderer.setAnimationLoop( render );
+				requestAnimationFrame( animate );
+				labelRenderer.render( scene, camera );
+
+			}
+
+
+
+		</script>
+	</body>
+</html>

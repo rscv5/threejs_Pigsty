@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewpoint"
+		  content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+		<title>PigSty</title>
+
+	</head>
+	<body>
+		<div id="info">
+			<a href="http://threejs.org" target="_blank" rel="noopener">PigSty</a> author:rscv5
+		</div>
+		<script src="../build/three.js"></script>
+		<script src="./jsm/libs/ThreeBSP.js"></script>
+		<script src="./jsm/controls/OrbitControls.js"></script>
+		<script src="./js/controls/OrbitControls.js"></script>
+
+		<script type="module">
+
+			import { GUI } from './jsm/libs/dat.gui.module.js';
+			import { MTLLoader } from "./jsm/loaders/MTLLoader.js";
+			import { OBJLoader } from "./jsm/loaders/OBJLoader.js";
+			import Stats from "./jsm/libs/stats.module.js";
+			import { Sky } from './jsm/objects/Sky.js';
+			import { MtlObjBridge } from "./jsm/loaders/obj2/bridge/MtlObjBridge.js";
+
+			//全局变量设置
+			var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+			var VIEW_ANGLE = 75, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 10000;
+
+			//renderer
+			var renderer;
+			function initRender() {
+
+				//antialias：true 增加抗锯齿效果
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setClearColor( 0xE0E0E0, 1.0 );//设置背景颜色
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				//开启阴影，加上阴影渲染
+				renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+				renderer.shadowMap.enabled = true;
+				//将renderer关联到container
+				container.appendChild( renderer.domElement );
+
+
+			}
+
+			var camera;
+			function initCamera() {
+
+				//camera
+				camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR );
+				camera.position.set( 0, 500, 800 );
+				camera.lookAt( new THREE.Vector3( 0, 0, 0 ) ); //相机指向原点
+			}
+
+			var scene;
+			function initScene() {
+
+				scene = new THREE.Scene();
+
+			}
+
+			// stats
+			var stats;
+			function initStats() {
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+			}
+
+			var sky, sun;
+			function initSky() {
+
+				//add sky
+				sky = new Sky();
+				sky.scale.setScalar( 450000 );
+				sky.castShadow = true;
+				scene.add( sky );
+
+				sun = new THREE.Vector3();
+			}
+
+
+			
+
+			// pigmodel
+			var objLoader = new OBJLoader();
+			var mtlLoader = new MTLLoader();
+			function loadpigmodel( x, y, z, ang, scale ) {
+
+				mtlLoader.setPath( './images/' );
+				mtlLoader.load( 'Pig1.mtl', function ( loadedMesh ) {
+
+					// var material = MtlObjBridge.addMaterialsFromMtlLoader( loadedMesh );
+					// objLoader.addMaterial( material );
+					objLoader.setMaterials( loadedMesh );
+					objLoader.load( './images/Pig1.obj', function ( object ) {
+
+						switch ( scale ) {
+
+							case 'big':
+								object.scale.set( 15, 15, 15 );
+								break;
+							case 'small':
+								object.scale.set( 10, 10, 10 );
+								break;
+							default:
+
+						}
+
+						// object.scale.set( 10, 10, 10 );
+						object.position.x = x;
+						object.position.y = y;
+						object.position.z = z;
+						object.rotation.y = Math.PI / ang;
+						object.traverse( function ( child ) {
+
+							child.castShadow = true;
+
+						});
+						// object.castShadow = true;
+						// object.receiveShadow = true;
+						scene.add( object );
+			
+					} );
+			
+				} );
+			}
+
+
+
+
+			//事件控制器
+			var effectController;
+			var container;
+			var matArrayA = []; //内墙
+			var matArrayB = []; //外墙
+			//用户交互插件 鼠标左键按住旋转，滚轮缩放
+			var controls, delta;
+			var clock = new THREE.Clock(); // 更新轨道控制器
+			// 用户交互插件轨道控制器
+			function initControls() {
+
+				controls = new THREE.OrbitControls( camera, container );
+				//如果使用animate方法时，将此函数删除
+				//controls.addEventListener('change', render);
+				//使动画循环使用时阻尼或自转 意思是否有惯性
+				controls.enableDamping = true;
+				controls.target = new THREE.Vector3( 0, 0, 0 );
+				controls.autoRotate = false; // 自动旋转开启
+
+			}
+
+			function guiChanged() {
+
+				var uniforms = sky.material.uniforms;
+				uniforms[ "rayleigh" ].value = 2.7;
+
+				// var theta = Math.PI * ( effectController.inclination - 0.5 );
+				var theta = Math.PI * ( - 0.01 );
+				var phi = 2 * Math.PI * ( effectController.azimuth - 0.5 );
+
+				sun.x = Math.cos( phi );
+				sun.y = Math.sin( phi ) * Math.sin( theta );
+				sun.z = Math.sin( phi ) * Math.cos( theta );
+
+				uniforms[ "sunPosition" ].value.copy( sun );
+				directionalLight.position.set( 1500 * effectController.azimuth, 1000, - 2000 );
+				// directionalLight.position.set( 1500, 1000 * effectController.inclination, - 2000 );
+				if ( effectController.azimuth <= 0.1 || effectController.azimuth >= 0.55 )
+					directionalLight.visible = false;
+				else
+					directionalLight.visible = true;
+
+
+			}
+
+			var clearroof;
+			function setupGUi() {
+
+				effectController = {
+					//roof
+					showclearroof: true,
+					//sun
+					azimuth: 0.25,
+
+				};
+
+				var h;
+				var gui = new GUI();
+				//将设置属性添加到gui当中, gui.add(对象， 属性， 最小值， 最大值）
+				h = gui.addFolder( "Tessellation control" );
+				h.add( effectController, "showclearroof" ).name( "display clearroof" ).onChange( function ( value ) {
+
+					clearroof.visible = value;
+					render();
+
+				} );
+				h = gui.addFolder( "sky_sun" );
+				// h.add( effectController, "rayleigh", 1, 4, 0.001 ).onChange( guiChanged );
+				h.add( effectController, "azimuth", 0, 0.7, 0.0001 ).onChange( guiChanged );
+				// h.add( effectController, "inclination", 0.45, 0.55, 0.00001 ).onChange( guiChanged );
+
+				guiChanged();
+
+			}
+
+
+			init();
+			animate();
+			window.onresize = onWindowResize;
+
+			function plane() {
+
+				var loader = new THREE.TextureLoader();
+				loader.load( "images/floor.png", function ( texture ) {
+
+					texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+					texture.repeat.set( 10, 10 );
+					//对应长，宽，长方形等分量，宽方向等分量
+					// var planeGeo = new THREE.PlaneGeometry(600, 600, 10, 10);
+					var planeGeo = new THREE.BoxGeometry( 2000, 1000, 1 );
+					//可以换材料
+					// var planeMat = new THREE.MeshBasicMaterial( {
+					var planeMat = new THREE.MeshPhongMaterial( {
+						map: texture, side: THREE.DoubleSide
+						// color : 0xCCCCCCC
+					} );
+					var planeMesh = new THREE.Mesh( planeGeo, planeMat ); //
+					// planeMesh.castShadow = true; // 开启投影
+					// planeMesh.receiveShadow = true; // 接收阴影
+					planeMesh.position.y = 35;
+					planeMesh.rotation.x = Math.PI / 2;
+					planeMesh.receiveShadow = true;
+					scene.add( planeMesh );
+
+				} );
+
+			}
+
+			function render() {
+
+				delta = clock.getDelta();
+				controls.update( delta );
+				requestAnimationFrame( render );
+				renderer.render( scene, camera );
+
+			}
+
+			//窗口变动触发的函数
+			function onWindowResize() {
+
+				camera.aspect = ASPECT;
+				camera.updateProjectionMatrix();
+				renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
+
+			}
+
+			//初始化 OBJ对象
+			function initObject() {
+
+				//墙纹理
+				createWallMaterail();
+				createLayout();
+
+			}
+
+			//创建墙
+			function createCubeWall( width, height, depth, angle, material, x, y, z ) {
+
+				//长，宽，高，长/宽/高等分量
+				var cubeGeometry = new THREE.BoxGeometry( width, height, depth );
+				var cube = new THREE.Mesh( cubeGeometry, material );
+				cube.castShadow = true;//开启投影
+				cube.receiveShadow = true;//接收阴影
+				cube.position.x = x;
+				cube.position.y = y;
+				cube.position.z = z;
+				cube.rotation.y += angle * Math.PI; //-逆时针旋转，+顺时针
+				scene.add( cube );
+
+			}
+
+			//返回墙对象
+			function returnWallObject( width, height, depth, angle, material, x, y, z ) {
+
+				var cubeGeometry = new THREE.BoxGeometry( width, height, depth );
+				var cube = new THREE.Mesh( cubeGeometry, cubeGeometry );
+				cube.position.x = x;
+				cube.position.y = y;
+				cube.position.z = z;
+				cube.rotation.y += angle * Math.PI;
+				cube.castShadow = true;
+				cube.receiveShadow = true;
+				return cube;
+
+			}
+
+			//创建墙纹理
+			function createWallMaterail() {
+
+				var loader = new THREE.TextureLoader();
+				loader.load( "images/wall.png", function ( texture ) {
+
+					texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+					texture.repeat.set( 10, 10 );
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayA.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+
+					matArrayB.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayB.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayB.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayB.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayB.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+					matArrayB.push( new THREE.MeshPhongMaterial( { map: texture } ) );
+
+				} );
+
+			}
+
+			//墙上挖门,通过两个集合体生产BSP对象
+			function createResultBsp( bsp, less_bsp, mat ) {
+
+				var texture = new THREE.TextureLoader().load( "images/wall.png" );
+				switch ( mat ) {
+
+					case 1:
+						var material = new THREE.MeshPhongMaterial( { map: texture } );
+						break;
+					case 2:
+						var material = new THREE.MeshPhongMaterial( { map: texture } );
+						break;
+					default:
+
+				}
+
+				var sphere1BSP = new ThreeBSP( bsp );
+				var cube2BSP = new ThreeBSP( less_bsp );
+				//差集 在第一个几何体中移除两个几何体重叠部分来创建新的几何体
+				var resultBSP = sphere1BSP.subtract( cube2BSP );
+				//从 BSP对象内获取到处理完成后的mesh模型数据
+				var result = resultBSP.toMesh( material );
+				result.material.flatshading = THREE.FlatShading;
+				//重新计算几何体侧面法向量 更新模型的面和顶点的数据
+				result.geometry.computeFaceNormals();
+				result.geometry.computeVertexNormals();
+				//更新纹理
+				result.material.needsUpdate = true;
+				result.geometry.buffersNeedUpdate = true;
+				result.geometry.uvsNeedUpdate = true;
+				//投影
+				result.castShadow = true;
+				result.receiveShadow = true;
+
+				scene.add( result );
+
+			}
+
+			//创建房屋布局
+			function createLayout() {
+
+				// createCubeWall(width, height, depth, angle, material, x, y, z)
+				//墙面1 立方体比较长的面 左一
+				createCubeWall( 25, 130, 525, 0, matArrayB, - 215, 100, 0 );
+				//墙面2  立方体比较长的面   右一
+				createCubeWall( 25, 130, 525, 1, matArrayB, 215, 100, 0 );
+				//墙面3   门对面的墙， 立方体比较短的面
+				createCubeWall( 25, 130, 455, 1.5, matArrayB, 0, 100, - 250 );
+				//墙面4 带门的墙面
+				var wall = returnWallObject( 25, 130, 405, 1.5, matArrayB, 0, 100, 250 );
+				//门框
+				var door_cube = returnWallObject( 25, 130, 90, 1.5, matArrayB, 155, 100, 250 );
+				createResultBsp( wall, door_cube, 1 );
+				//clearfloor 区域
+				//clearfloor的右边墙
+				createCubeWall( 185, 130, 25, 0.5, matArrayA, 25, 100, - 145 );
+				// createCubeWall(25, 130, 90, 0.5, matArrayB, -30, 100, -65);
+				var roof_cube = returnWallObject( 25, 130, 215, 0.5, matArrayA, - 95, 100, - 65 );
+				//clearfloor 门
+				var roofdoor_cube1 = returnWallObject( 25, 130, 90, 0.5, matArrayA, - 30, 100, - 65 );
+				createResultBsp( roof_cube, roofdoor_cube1, 2 );
+				//door
+				loaddoor( 250, 50, - 250, 1 );
+
+
+			}
+
+			// Whenever the clearroof changes, the scene is rebuilt from scratch
+			function creatClearRoof() {
+
+				var clearroofGeo = new THREE.BoxGeometry( 210, 190, 10, 100 );
+				var clearroofMat = new THREE.MeshBasicMaterial( {
+					color: 0xCCCCCC,
+					wireframe: true
+				} );
+				clearroof = new THREE.Mesh( clearroofGeo, clearroofMat );
+				clearroof.position.z = - 145;
+				clearroof.position.y = 165;
+				clearroof.position.x = - 95;
+				clearroof.rotation.x = Math.PI / 2;
+				clearroof.visible = true;
+				// clearroof.receiveShadow = true;
+				clearroof.castShadow = true;
+				scene.add( clearroof );
+
+			}
+
+			function loaddoor( x, y, z, s ) {
+
+				mtlLoader.setPath( './images/' );
+				mtlLoader.load( 'door.mtl', function ( loadedMesh ) {
+
+					objLoader.setMaterials( loadedMesh );
+					objLoader.load( './images/door.obj', function ( door ) {
+
+						door.scale.set( s, 0.75, 1.15 );
+						door.position.x = x;
+						door.position.y = y;
+						door.position.z = z;
+						door.rotation.y += 1.5 * Math.PI;
+						door.traverse( function ( child ) {
+
+							if ( child instanceof THREE.Mesh ) {
+								// child.material.map = texture;
+								child.castShadow = true;
+							}
+
+						});
+						// door.castShadow = true;
+						// door.receiveShadow = true;
+						// for ( k in door ) {
+						//
+						// 	k.castShadow = true;
+						// 	k.receiveShadow = true;
+						//
+						// }
+						scene.add( door );
+
+					} );
+
+				} );
+
+
+			}
+
+			var ambientLight, directionalLight;
+			function initLight() {
+
+				// Light
+
+				ambientLight = new THREE.AmbientLight( 0xfffffff, 1 );
+				scene.add( ambientLight );
+				// hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 1 );
+				// hemiLight.castShadow = true;
+				// scene.add( hemiLight );
+
+				directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
+				// directionalLight = new THREE.SpotLight( 0xffffff );
+				// directionalLight.position.set( 0,  800, - 700 );
+
+				//决定使用多少像素生成阴影
+				directionalLight.shadow.mapSize.width = 2048;
+				directionalLight.shadow.mapSize.height = 2048;
+
+				directionalLight.shadow.camera.near = - 1000; // 产生阴影的最近距离
+				directionalLight.shadow.camera.far = 7000; // 产生阴影的最远距离
+
+				var d = 600;
+				//产生阴影距离位置的最左边位置
+				directionalLight.shadow.camera.left = - d;
+				directionalLight.shadow.camera.right = d;
+				directionalLight.shadow.camera.top = d;
+				directionalLight.shadow.camera.bottom = - d;
+				directionalLight.castShadow = true;
+
+				scene.add( directionalLight );
+
+
+
+				directionalLight.shadow.bias = 0.0038;
+
+			}
+
+			function init() {
+
+				//添加一个div元素
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+				initScene();
+				initLight();
+				initSky();
+				initCamera();
+				initRender();
+				initStats();
+				initControls();
+				initObject();
+				// initLight();
+				plane();
+				creatClearRoof();
+				//loadpigmodel( x, y, z, ang_math.pi/ang, 'big/small')
+				loadpigmodel( - 30, 35, - 110, 0.5, 'small' );
+				loadpigmodel( - 30, 35, 100, 3, 'big' );
+				loadpigmodel( 90, 35, - 50, 1, 'big' );
+				loadpigmodel( 500, 35, - 50, 3, 'big');
+
+				//GUI
+				setupGUi();
+
+			}
+
+			function animate() {
+
+				//更新控制器
+				render();
+				//更新性能插件
+				controls.update();
+				stats.update();
+				// renderer.setAnimationLoop( render );
+				requestAnimationFrame( animate );
+
+}
+
+
+
+		</script>
+	</body>
+</html>
